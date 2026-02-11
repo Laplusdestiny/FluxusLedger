@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  fluxusledger-db:
+    image: postgres:15-alpine
+    container_name: fluxusledger-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-fluxusledger_db}
+      POSTGRES_USER: ${DB_USER:-fluxusledger_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-strong_password_123}
+    volumes:
+      - fluxusledger_db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-fluxusledger_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  fluxusledger-backend:
+    build: ./backend
+    container_name: fluxusledger-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-fluxusledger_user}:${DB_PASSWORD:-strong_password_123}@fluxusledger-db:5432/${DB_NAME:-fluxusledger_db}
+      SECRET_KEY: ${SECRET_KEY:-your-32-char-secret-key-here-change-me}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+    depends_on:
+      fluxusledger-db:
+        condition: service_healthy
+    networks:
+      - fluxusledger
+
+  fluxusledger-frontend:
+    build: ./frontend
+    container_name: fluxusledger-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://fluxusledger-backend:8000
+    depends_on:
+      - fluxusledger-backend
+    networks:
+      - fluxusledger
+
+  fluxusledger-nginx:
+    image: nginx:alpine
+    container_name: fluxusledger-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - fluxusledger-frontend
+      - fluxusledger-backend
+    networks:
+      - fluxusledger
+
+volumes:
+  fluxusledger_db_data:
+
+networks:
+  fluxusledger:
+    driver: bridge
