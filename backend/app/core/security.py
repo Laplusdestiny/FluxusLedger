@@ -41,5 +41,5 @@ def decode_token(token: str) -> Optional[dict]:
             token, settings.secret_key, algorithms=[settings.algorithm]
         )
         return payload
-    except jwt.InvalidTokenError:
+    except JWTError:
         return None

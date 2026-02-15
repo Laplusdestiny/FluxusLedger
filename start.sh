@@ -16,7 +16,7 @@ fi
 
 # Docker Compose で起動
 echo "Docker コンテナを起動しています..."
-docker-compose up --build
+sudo docker compose up --build
 
 echo ""
 echo "FluxusLedger が起動しました！"
