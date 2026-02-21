@@ -19,7 +19,7 @@ services:
       - fluxusledger
 
   fluxusledger-backend:
-    build: ./backend
+    image: ${BACKEND_IMAGE:-ghcr.io/laplusdestiny/fluxusledger-backend:latest}
     container_name: fluxusledger-backend
     ports:
       - "8000:8000"
@@ -34,7 +34,7 @@ services:
       - fluxusledger
 
   fluxusledger-frontend:
-    build: ./frontend
+    image: ${FRONTEND_IMAGE:-ghcr.io/laplusdestiny/fluxusledger-frontend:latest}
     container_name: fluxusledger-frontend
     ports:
       - "3000:3000"
