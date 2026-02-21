@@ -36,8 +36,8 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           tags: |
-            ghcr.io/Laplusdestiny/fluxusledger-backend:latest
-            ghcr.io/Laplusdestiny/fluxusledger-backend:${{ github.sha }}
+            ghcr.io/Laplusdestiny/fluxusledger_backend:latest
+            ghcr.io/Laplusdestiny/fluxusledger_backend:${{ github.sha }}
           platforms: linux/amd64
 
       - name: Build and push frontend image
@@ -47,6 +47,6 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           tags: |
-            ghcr.io/Laplusdestiny/fluxusledger-frontend:latest
-            ghcr.io/Laplusdestiny/fluxusledger-frontend:${{ github.sha }}
+            ghcr.io/Laplusdestiny/fluxusledger_frontend:latest
+            ghcr.io/Laplusdestiny/fluxusledger_frontend:${{ github.sha }}
           platforms: linux/amd64
