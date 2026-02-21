@@ -2,7 +2,7 @@ name: Build and publish Docker images
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "github_config" ]
   workflow_dispatch: {}
 
 permissions:
