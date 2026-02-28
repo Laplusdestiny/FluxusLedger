@@ -14,13 +14,14 @@ export const transactionService = {
     return response.data
   },
 
-  createTransaction: async (date: string, amount: number, type: 'income' | 'expense', categoryId: string, paymentMethodId?: string, description?: string): Promise<Transaction> => {
+  createTransaction: async (date: string, amount: number, type: 'income' | 'expense', categoryId: string, paymentMethodId?: string, description?: string, assetId?: string): Promise<Transaction> => {
     const response = await api.post('/api/transactions', {
       date,
       amount,
       type,
       category_id: categoryId,
       payment_method_id: paymentMethodId,
+      asset_id: assetId,
       description,
     })
     return response.data

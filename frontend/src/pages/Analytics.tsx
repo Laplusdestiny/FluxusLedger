@@ -60,6 +60,7 @@ const Analytics: React.FC = () => {
         <Toolbar>
           <Button color="inherit" onClick={() => navigate('/')}>ダッシュボード</Button>
           <Button color="inherit" onClick={() => navigate('/transactions')}>取引</Button>
+          <Button color="inherit" onClick={() => navigate('/assets')}>資産管理</Button>
           <Button color="inherit" onClick={() => navigate('/categories')}>カテゴリー</Button>
           <Button color="inherit" onClick={() => navigate('/settings')}>設定</Button>
           <Box sx={{ flexGrow: 1 }} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AppBar,
@@ -24,20 +24,28 @@ import {
   InputLabel,
   IconButton,
   Alert,
+  Typography,
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import AddIcon from '@mui/icons-material/Add'
 import LogoutIcon from '@mui/icons-material/Logout'
-import { Transaction, Category, PaymentMethod } from '../types'
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import { Transaction, Category, PaymentMethod, Asset } from '../types'
 import { transactionService } from '../services/transactionService'
 import { categoryService } from '../services/categoryService'
 import { paymentMethodService } from '../services/paymentMethodService'
+import { assetService } from '../services/assetService'
 
 const Transactions: React.FC = () => {
+  const now = new Date()
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1) // 1-indexed
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [assets, setAssets] = useState<Asset[]>([])
   const [openDialog, setOpenDialog] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
@@ -46,38 +54,75 @@ const Transactions: React.FC = () => {
     type: 'expense',
     categoryId: '',
     paymentMethodId: '',
+    assetId: '',
     description: '',
   })
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const today = new Date()
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+      const firstDay = new Date(selectedYear, selectedMonth - 1, 1).toISOString().split('T')[0]
+      const lastDay = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0]
 
-      const [txns, cats, methods] = await Promise.all([
+      const [txns, cats, methods, assetList] = await Promise.all([
         transactionService.getTransactions(0, 1000, firstDay, lastDay),
         categoryService.getCategories(),
         paymentMethodService.getPaymentMethods ? paymentMethodService.getPaymentMethods() : [],
+        assetService.getAssets(),
       ])
 
       setTransactions(txns)
       setCategories(cats)
       setPaymentMethods(methods)
+      setAssets(assetList)
 
       if (cats.length > 0) {
-        setFormData((prev) => ({ ...prev, categoryId: cats[0].id }))
+        setFormData((prev) => ({
+          ...prev,
+          categoryId: cats.find((c) => c.type === prev.type)?.id || cats[0].id,
+        }))
       }
-    } catch (err) {
+    } catch {
       setError('データの読み込みに失敗しました')
     }
+  }, [selectedYear, selectedMonth])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const handlePrevMonth = () => {
+    if (selectedMonth === 1) {
+      setSelectedYear(selectedYear - 1)
+      setSelectedMonth(12)
+    } else {
+      setSelectedMonth(selectedMonth - 1)
+    }
   }
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 12) {
+      setSelectedYear(selectedYear + 1)
+      setSelectedMonth(1)
+    } else {
+      setSelectedMonth(selectedMonth + 1)
+    }
+  }
+
+  const handleToday = () => {
+    const today = new Date()
+    setSelectedYear(today.getFullYear())
+    setSelectedMonth(today.getMonth() + 1)
+  }
+
+  const totalIncome = transactions
+    .filter((t) => t.type === 'income')
+    .reduce((sum, t) => sum + parseFloat(t.amount), 0)
+
+  const totalExpense = transactions
+    .filter((t) => t.type === 'expense')
+    .reduce((sum, t) => sum + parseFloat(t.amount), 0)
 
   const handleOpenDialog = (txn?: Transaction) => {
     if (txn) {
@@ -88,16 +133,19 @@ const Transactions: React.FC = () => {
         type: txn.type,
         categoryId: txn.category_id,
         paymentMethodId: txn.payment_method_id || '',
+        assetId: txn.asset_id || '',
         description: txn.description || '',
       })
     } else {
       setEditingId(null)
+      const defaultType = 'expense'
       setFormData({
         date: new Date().toISOString().split('T')[0],
         amount: '',
-        type: 'expense',
-        categoryId: categories[0]?.id || '',
+        type: defaultType,
+        categoryId: categories.find((c) => c.type === defaultType)?.id || '',
         paymentMethodId: '',
+        assetId: '',
         description: '',
       })
     }
@@ -125,6 +173,7 @@ const Transactions: React.FC = () => {
           type: formData.type,
           category_id: formData.categoryId,
           payment_method_id: formData.paymentMethodId || null,
+          asset_id: formData.assetId || null,
           description: formData.description || null,
         })
       } else {
@@ -134,14 +183,20 @@ const Transactions: React.FC = () => {
           formData.type as 'income' | 'expense',
           formData.categoryId,
           formData.paymentMethodId || undefined,
-          formData.description || undefined
+          formData.description || undefined,
+          formData.assetId || undefined
         )
       }
 
-      loadData()
+      await loadData()
       handleCloseDialog()
     } catch (err: any) {
-      setError(err.response?.data?.detail || '保存に失敗しました')
+      const detail = err.response?.data?.detail
+      if (Array.isArray(detail)) {
+        setError(detail.map((d: any) => d.msg).join(', '))
+      } else {
+        setError(typeof detail === 'string' ? detail : '保存に失敗しました')
+      }
     }
   }
 
@@ -162,12 +217,14 @@ const Transactions: React.FC = () => {
   }
 
   const categoryMap = Object.fromEntries(categories.map((c) => [c.id, c.name]))
+  const assetMap = Object.fromEntries(assets.map((a) => [a.id, a.name]))
 
   return (
     <>
       <AppBar position="static" sx={{ backgroundColor: '#1E3A8A' }}>
         <Toolbar>
           <Button color="inherit" onClick={() => navigate('/')}>ダッシュボード</Button>
+          <Button color="inherit" onClick={() => navigate('/assets')}>資産管理</Button>
           <Button color="inherit" onClick={() => navigate('/analytics')}>分析</Button>
           <Button color="inherit" onClick={() => navigate('/categories')}>カテゴリー</Button>
           <Button color="inherit" onClick={() => navigate('/settings')}>設定</Button>
@@ -188,6 +245,46 @@ const Transactions: React.FC = () => {
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
+        {/* 年月ナビゲーション */}
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2 }}>
+            <IconButton onClick={handlePrevMonth} size="large">
+              <ChevronLeftIcon />
+            </IconButton>
+            <Typography variant="h5" sx={{ minWidth: 160, textAlign: 'center', fontWeight: 'bold' }}>
+              {selectedYear}年{selectedMonth}月
+            </Typography>
+            <IconButton onClick={handleNextMonth} size="large">
+              <ChevronRightIcon />
+            </IconButton>
+            <Button variant="outlined" size="small" onClick={handleToday} sx={{ ml: 1 }}>
+              今月
+            </Button>
+          </Box>
+
+          {/* 月間サマリー */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mt: 2 }}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">収入</Typography>
+              <Typography variant="h6" sx={{ color: '#10B981', fontWeight: 'bold' }}>
+                +¥{totalIncome.toLocaleString()}
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">支出</Typography>
+              <Typography variant="h6" sx={{ color: '#EF4444', fontWeight: 'bold' }}>
+                -¥{totalExpense.toLocaleString()}
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">収支</Typography>
+              <Typography variant="h6" sx={{ color: totalIncome - totalExpense >= 0 ? '#10B981' : '#EF4444', fontWeight: 'bold' }}>
+                {totalIncome - totalExpense >= 0 ? '+' : ''}¥{(totalIncome - totalExpense).toLocaleString()}
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+
         <TableContainer component={Paper}>
           <Table>
             <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
@@ -197,13 +294,14 @@ const Transactions: React.FC = () => {
                 <TableCell>種別</TableCell>
                 <TableCell align="right">金額</TableCell>
                 <TableCell>説明</TableCell>
+                <TableCell>資産</TableCell>
                 <TableCell align="center">操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                     取引はありません
                   </TableCell>
                 </TableRow>
@@ -221,6 +319,7 @@ const Transactions: React.FC = () => {
                       {txn.type === 'income' ? '+' : '-'}¥{parseFloat(txn.amount).toLocaleString()}
                     </TableCell>
                     <TableCell>{txn.description}</TableCell>
+                    <TableCell>{txn.asset_id ? assetMap[txn.asset_id] || '-' : '-'}</TableCell>
                     <TableCell align="center">
                       <IconButton size="small" onClick={() => handleOpenDialog(txn)} color="primary">
                         <EditIcon fontSize="small" />
@@ -266,7 +365,16 @@ const Transactions: React.FC = () => {
             <InputLabel>種別</InputLabel>
             <Select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              onChange={(e) => {
+                const newType = e.target.value
+                setFormData({
+                  ...formData,
+                  type: newType,
+                  categoryId: categories.find((c) => c.type === newType)?.id || '',
+                  paymentMethodId: '',
+                  assetId: '',
+                })
+              }}
               label="種別"
             >
               <MenuItem value="expense">支出</MenuItem>
@@ -281,7 +389,7 @@ const Transactions: React.FC = () => {
               onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
               label="カテゴリー"
             >
-              {categories.map((cat) => (
+              {categories.filter((cat) => cat.type === formData.type).map((cat) => (
                 <MenuItem key={cat.id} value={cat.id}>
                   {cat.name}
                 </MenuItem>
@@ -289,21 +397,43 @@ const Transactions: React.FC = () => {
             </Select>
           </FormControl>
 
-          <FormControl fullWidth margin="normal">
-            <InputLabel>支払方法</InputLabel>
-            <Select
-              value={formData.paymentMethodId}
-              onChange={(e) => setFormData({ ...formData, paymentMethodId: e.target.value })}
-              label="支払方法"
-            >
-              <MenuItem value="">なし</MenuItem>
-              {paymentMethods.map((method) => (
-                <MenuItem key={method.id} value={method.id}>
-                  {method.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {/* 支出の場合: 支払方法を選択 */}
+          {formData.type === 'expense' && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>支払方法</InputLabel>
+              <Select
+                value={formData.paymentMethodId}
+                onChange={(e) => setFormData({ ...formData, paymentMethodId: e.target.value })}
+                label="支払方法"
+              >
+                <MenuItem value="">なし</MenuItem>
+                {paymentMethods.map((method) => (
+                  <MenuItem key={method.id} value={method.id}>
+                    {method.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          {/* 収入の場合: 入金先を選択 */}
+          {formData.type === 'income' && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>入金先</InputLabel>
+              <Select
+                value={formData.assetId}
+                onChange={(e) => setFormData({ ...formData, assetId: e.target.value })}
+                label="入金先"
+              >
+                <MenuItem value="">なし</MenuItem>
+                {assets.map((asset) => (
+                  <MenuItem key={asset.id} value={asset.id}>
+                    {asset.name}（¥{parseFloat(asset.balance).toLocaleString()}）
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           <TextField
             label="説明"

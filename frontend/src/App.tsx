@@ -9,6 +9,7 @@ import Transactions from './pages/Transactions'
 import Analytics from './pages/Analytics'
 import Categories from './pages/Categories'
 import Settings from './pages/Settings'
+import Assets from './pages/Assets'
 import ProtectedRoute from './components/ProtectedRoute'
 
 const theme = createTheme({
@@ -43,6 +44,7 @@ function App() {
           <Route element={<ProtectedRoute isAuthenticated={isAuthenticated} />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/transactions" element={<Transactions />} />
+            <Route path="/assets" element={<Assets />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/settings" element={<Settings />} />

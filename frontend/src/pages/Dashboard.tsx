@@ -82,6 +82,7 @@ const Dashboard: React.FC = () => {
             FluxusLedger
           </Typography>
           <Button color="inherit" onClick={() => navigate('/transactions')}>取引</Button>
+          <Button color="inherit" onClick={() => navigate('/assets')}>資産管理</Button>
           <Button color="inherit" onClick={() => navigate('/analytics')}>分析</Button>
           <Button color="inherit" onClick={() => navigate('/categories')}>カテゴリー</Button>
           <Button color="inherit" onClick={() => navigate('/settings')}>設定</Button>

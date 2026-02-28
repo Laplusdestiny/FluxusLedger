@@ -5,7 +5,15 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
-from app.api.endpoints import auth, categories, payment_methods, transactions, analytics, budgets
+from app.api.endpoints import (
+    auth,
+    categories,
+    payment_methods,
+    transactions,
+    analytics,
+    budgets,
+    assets,
+)
 
 
 # 初期化時にテーブルを作成
@@ -21,7 +29,7 @@ app = FastAPI(
     title="FluxusLedger API",
     description="Next-generation household accounting application",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS設定
@@ -40,15 +48,13 @@ app.include_router(payment_methods.router)
 app.include_router(transactions.router)
 app.include_router(analytics.router)
 app.include_router(budgets.router)
+app.include_router(assets.router)
 
 
 @app.get("/")
 def root():
     """Root endpoint"""
-    return {
-        "message": "FluxusLedger API",
-        "version": "1.0.0"
-    }
+    return {"message": "FluxusLedger API", "version": "1.0.0"}
 
 
 @app.get("/health")
