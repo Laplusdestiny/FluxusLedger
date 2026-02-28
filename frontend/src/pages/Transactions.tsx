@@ -72,7 +72,10 @@ const Transactions: React.FC = () => {
       setPaymentMethods(methods)
 
       if (cats.length > 0) {
-        setFormData((prev) => ({ ...prev, categoryId: cats[0].id }))
+        setFormData((prev) => ({
+          ...prev,
+          categoryId: cats.find((c) => c.type === prev.type)?.id || cats[0].id,
+        }))
       }
     } catch (err) {
       setError('データの読み込みに失敗しました')
@@ -92,11 +95,12 @@ const Transactions: React.FC = () => {
       })
     } else {
       setEditingId(null)
+      const defaultType = 'expense'
       setFormData({
         date: new Date().toISOString().split('T')[0],
         amount: '',
-        type: 'expense',
-        categoryId: categories[0]?.id || '',
+        type: defaultType,
+        categoryId: categories.find((c) => c.type === defaultType)?.id || '',
         paymentMethodId: '',
         description: '',
       })
@@ -271,7 +275,14 @@ const Transactions: React.FC = () => {
             <InputLabel>種別</InputLabel>
             <Select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              onChange={(e) => {
+                const newType = e.target.value
+                setFormData({
+                  ...formData,
+                  type: newType,
+                  categoryId: categories.find((c) => c.type === newType)?.id || '',
+                })
+              }}
               label="種別"
             >
               <MenuItem value="expense">支出</MenuItem>
@@ -286,7 +297,7 @@ const Transactions: React.FC = () => {
               onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
               label="カテゴリー"
             >
-              {categories.map((cat) => (
+              {categories.filter((cat) => cat.type === formData.type).map((cat) => (
                 <MenuItem key={cat.id} value={cat.id}>
                   {cat.name}
                 </MenuItem>
