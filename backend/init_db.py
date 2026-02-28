@@ -1,16 +1,14 @@
 #!/usr/bin/env python
 """Initialize database tables and seed default categories for existing users"""
 
-import asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import uuid
 
 from app.core.config import settings
-from app.core.defaults import DEFAULT_CATEGORIES, create_default_categories
+from app.core.defaults import create_default_categories
 from app.db.base import Base
-from app.models.category import Category, TransactionType
-from app.models.payment_method import PaymentMethod, PaymentMethodType
+from app.models.category import Category
+from app.models.payment_method import PaymentMethod  # noqa: F401 (needed for create_all)
 from app.models.user import User
 
 # Create engine and session

@@ -16,7 +16,7 @@ export interface Category {
 export interface PaymentMethod {
   id: string
   name: string
-  type: 'cash' | 'credit_card' | 'debit_card' | 'bank_transfer'
+  type: string
   created_at: string
 }
 
