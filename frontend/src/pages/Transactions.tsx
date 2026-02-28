@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AppBar,
@@ -24,11 +24,14 @@ import {
   InputLabel,
   IconButton,
   Alert,
+  Typography,
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import AddIcon from '@mui/icons-material/Add'
 import LogoutIcon from '@mui/icons-material/Logout'
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { Transaction, Category, PaymentMethod, Asset } from '../types'
 import { transactionService } from '../services/transactionService'
 import { categoryService } from '../services/categoryService'
@@ -36,6 +39,9 @@ import { paymentMethodService } from '../services/paymentMethodService'
 import { assetService } from '../services/assetService'
 
 const Transactions: React.FC = () => {
+  const now = new Date()
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1) // 1-indexed
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
@@ -54,15 +60,10 @@ const Transactions: React.FC = () => {
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const today = new Date()
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+      const firstDay = new Date(selectedYear, selectedMonth - 1, 1).toISOString().split('T')[0]
+      const lastDay = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0]
 
       const [txns, cats, methods, assetList] = await Promise.all([
         transactionService.getTransactions(0, 1000, firstDay, lastDay),
@@ -82,10 +83,46 @@ const Transactions: React.FC = () => {
           categoryId: cats.find((c) => c.type === prev.type)?.id || cats[0].id,
         }))
       }
-    } catch (err) {
+    } catch {
       setError('データの読み込みに失敗しました')
     }
+  }, [selectedYear, selectedMonth])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const handlePrevMonth = () => {
+    if (selectedMonth === 1) {
+      setSelectedYear(selectedYear - 1)
+      setSelectedMonth(12)
+    } else {
+      setSelectedMonth(selectedMonth - 1)
+    }
   }
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 12) {
+      setSelectedYear(selectedYear + 1)
+      setSelectedMonth(1)
+    } else {
+      setSelectedMonth(selectedMonth + 1)
+    }
+  }
+
+  const handleToday = () => {
+    const today = new Date()
+    setSelectedYear(today.getFullYear())
+    setSelectedMonth(today.getMonth() + 1)
+  }
+
+  const totalIncome = transactions
+    .filter((t) => t.type === 'income')
+    .reduce((sum, t) => sum + parseFloat(t.amount), 0)
+
+  const totalExpense = transactions
+    .filter((t) => t.type === 'expense')
+    .reduce((sum, t) => sum + parseFloat(t.amount), 0)
 
   const handleOpenDialog = (txn?: Transaction) => {
     if (txn) {
@@ -207,6 +244,46 @@ const Transactions: React.FC = () => {
         </Box>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+        {/* 年月ナビゲーション */}
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2 }}>
+            <IconButton onClick={handlePrevMonth} size="large">
+              <ChevronLeftIcon />
+            </IconButton>
+            <Typography variant="h5" sx={{ minWidth: 160, textAlign: 'center', fontWeight: 'bold' }}>
+              {selectedYear}年{selectedMonth}月
+            </Typography>
+            <IconButton onClick={handleNextMonth} size="large">
+              <ChevronRightIcon />
+            </IconButton>
+            <Button variant="outlined" size="small" onClick={handleToday} sx={{ ml: 1 }}>
+              今月
+            </Button>
+          </Box>
+
+          {/* 月間サマリー */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mt: 2 }}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">収入</Typography>
+              <Typography variant="h6" sx={{ color: '#10B981', fontWeight: 'bold' }}>
+                +¥{totalIncome.toLocaleString()}
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">支出</Typography>
+              <Typography variant="h6" sx={{ color: '#EF4444', fontWeight: 'bold' }}>
+                -¥{totalExpense.toLocaleString()}
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">収支</Typography>
+              <Typography variant="h6" sx={{ color: totalIncome - totalExpense >= 0 ? '#10B981' : '#EF4444', fontWeight: 'bold' }}>
+                {totalIncome - totalExpense >= 0 ? '+' : ''}¥{(totalIncome - totalExpense).toLocaleString()}
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
 
         <TableContainer component={Paper}>
           <Table>
