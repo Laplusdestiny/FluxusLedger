@@ -138,10 +138,15 @@ const Transactions: React.FC = () => {
         )
       }
 
-      loadData()
+      await loadData()
       handleCloseDialog()
     } catch (err: any) {
-      setError(err.response?.data?.detail || '保存に失敗しました')
+      const detail = err.response?.data?.detail
+      if (Array.isArray(detail)) {
+        setError(detail.map((d: any) => d.msg).join(', '))
+      } else {
+        setError(typeof detail === 'string' ? detail : '保存に失敗しました')
+      }
     }
   }
 
