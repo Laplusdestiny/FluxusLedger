@@ -217,13 +217,14 @@ const Transactions: React.FC = () => {
                 <TableCell>種別</TableCell>
                 <TableCell align="right">金額</TableCell>
                 <TableCell>説明</TableCell>
+                <TableCell>資産</TableCell>
                 <TableCell align="center">操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                     取引はありません
                   </TableCell>
                 </TableRow>
@@ -241,6 +242,7 @@ const Transactions: React.FC = () => {
                       {txn.type === 'income' ? '+' : '-'}¥{parseFloat(txn.amount).toLocaleString()}
                     </TableCell>
                     <TableCell>{txn.description}</TableCell>
+                    <TableCell>{txn.asset_id ? assetMap[txn.asset_id] || '-' : '-'}</TableCell>
                     <TableCell align="center">
                       <IconButton size="small" onClick={() => handleOpenDialog(txn)} color="primary">
                         <EditIcon fontSize="small" />
