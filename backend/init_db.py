@@ -9,6 +9,8 @@ from app.core.defaults import create_default_categories
 from app.db.base import Base
 from app.models.category import Category
 from app.models.payment_method import PaymentMethod  # noqa: F401 (needed for create_all)
+from app.models.transaction import Transaction  # noqa: F401 (needed for create_all)
+from app.models.asset import Asset  # noqa: F401 (needed for create_all)
 from app.models.user import User
 
 # Create engine and session

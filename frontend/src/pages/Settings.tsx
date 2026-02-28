@@ -19,6 +19,10 @@ import {
   DialogActions,
   TextField,
   Autocomplete,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
   IconButton,
   Alert,
   Typography,
@@ -27,8 +31,9 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import AddIcon from '@mui/icons-material/Add'
 import LogoutIcon from '@mui/icons-material/Logout'
-import { PaymentMethod } from '../types'
+import { PaymentMethod, Asset } from '../types'
 import api from '../services/api'
+import { assetService } from '../services/assetService'
 
 /** Payment type option used in the Autocomplete dropdown */
 interface PaymentTypeOption {
@@ -38,6 +43,7 @@ interface PaymentTypeOption {
 
 const Settings: React.FC = () => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [assets, setAssets] = useState<Asset[]>([])
   const [typeOptions, setTypeOptions] = useState<PaymentTypeOption[]>([])
   const [typeLabels, setTypeLabels] = useState<Record<string, string>>({})
   const [openDialog, setOpenDialog] = useState(false)
@@ -45,6 +51,9 @@ const Settings: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     type: '',
+    assetId: '',
+    closingDay: '',
+    paymentDay: '',
   })
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -52,6 +61,7 @@ const Settings: React.FC = () => {
   useEffect(() => {
     loadPaymentMethods()
     loadPaymentTypes()
+    loadAssets()
   }, [])
 
   const loadPaymentMethods = async () => {
@@ -72,7 +82,6 @@ const Settings: React.FC = () => {
         Object.entries(labels).map(([value, label]) => ({ value, label }))
       )
     } catch (err) {
-      // Fallback: use hardcoded defaults if API fails
       const fallback: Record<string, string> = {
         cash: '現金',
         credit_card: 'クレジットカード',
@@ -90,13 +99,28 @@ const Settings: React.FC = () => {
     }
   }
 
+  const loadAssets = async () => {
+    try {
+      const assetList = await assetService.getAssets()
+      setAssets(assetList)
+    } catch (err) {
+      // Non-critical, assets may not be set up yet
+    }
+  }
+
   const handleOpenDialog = (method?: PaymentMethod) => {
     if (method) {
       setEditingId(method.id)
-      setFormData({ name: method.name, type: method.type })
+      setFormData({
+        name: method.name,
+        type: method.type,
+        assetId: method.asset_id || '',
+        closingDay: method.closing_day != null ? String(method.closing_day) : '',
+        paymentDay: method.payment_day != null ? String(method.payment_day) : '',
+      })
     } else {
       setEditingId(null)
-      setFormData({ name: '', type: '' })
+      setFormData({ name: '', type: '', assetId: '', closingDay: '', paymentDay: '' })
     }
     setOpenDialog(true)
   }
@@ -118,23 +142,30 @@ const Settings: React.FC = () => {
       return
     }
 
+    const payload: any = {
+      name: formData.name,
+      type: formData.type,
+      asset_id: formData.assetId || null,
+      closing_day: formData.closingDay ? parseInt(formData.closingDay) : null,
+      payment_day: formData.paymentDay ? parseInt(formData.paymentDay) : null,
+    }
+
     try {
       if (editingId) {
-        await api.put(`/api/payment-methods/${editingId}`, {
-          name: formData.name,
-          type: formData.type,
-        })
+        await api.put(`/api/payment-methods/${editingId}`, payload)
       } else {
-        await api.post('/api/payment-methods', {
-          name: formData.name,
-          type: formData.type,
-        })
+        await api.post('/api/payment-methods', payload)
       }
 
       loadPaymentMethods()
       handleCloseDialog()
     } catch (err: any) {
-      setError(err.response?.data?.detail || '保存に失敗しました')
+      const detail = err.response?.data?.detail
+      if (Array.isArray(detail)) {
+        setError(detail.map((d: any) => d.msg).join(', '))
+      } else {
+        setError(typeof detail === 'string' ? detail : '保存に失敗しました')
+      }
     }
   }
 
@@ -164,12 +195,20 @@ const Settings: React.FC = () => {
     return found || { value: type, label: type }
   }
 
+  const assetMap = Object.fromEntries(assets.map((a) => [a.id, a.name]))
+
+  /** Check if the current type looks like a credit card */
+  const isCreditCardType = (type: string): boolean => {
+    return type === 'credit_card' || type === 'クレジットカード'
+  }
+
   return (
     <>
       <AppBar position="static" sx={{ backgroundColor: '#1E3A8A' }}>
         <Toolbar>
           <Button color="inherit" onClick={() => navigate('/')}>ダッシュボード</Button>
           <Button color="inherit" onClick={() => navigate('/transactions')}>取引</Button>
+          <Button color="inherit" onClick={() => navigate('/assets')}>資産管理</Button>
           <Button color="inherit" onClick={() => navigate('/analytics')}>分析</Button>
           <Button color="inherit" onClick={() => navigate('/categories')}>カテゴリー</Button>
           <Box sx={{ flexGrow: 1 }} />
@@ -201,13 +240,15 @@ const Settings: React.FC = () => {
                 <TableRow>
                   <TableCell>名前</TableCell>
                   <TableCell>種別</TableCell>
+                  <TableCell>連携資産</TableCell>
+                  <TableCell>締め日 / 引き落とし日</TableCell>
                   <TableCell align="center">操作</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paymentMethods.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
+                    <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
                       支払方法がありません
                     </TableCell>
                   </TableRow>
@@ -216,6 +257,14 @@ const Settings: React.FC = () => {
                     <TableRow key={method.id}>
                       <TableCell>{method.name}</TableCell>
                       <TableCell>{getTypeLabel(method.type)}</TableCell>
+                      <TableCell>
+                        {method.asset_id ? assetMap[method.asset_id] || '不明' : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {method.closing_day != null && method.payment_day != null
+                          ? `${method.closing_day}日 / ${method.payment_day}日`
+                          : '-'}
+                      </TableCell>
                       <TableCell align="center">
                         <IconButton size="small" onClick={() => handleOpenDialog(method)} color="primary">
                           <EditIcon fontSize="small" />
@@ -265,7 +314,6 @@ const Settings: React.FC = () => {
             }}
             onInputChange={(_e, inputValue, reason) => {
               if (reason === 'input') {
-                // User is typing a custom value — check if it matches an option label
                 const matched = typeOptions.find((o) => o.label === inputValue)
                 setFormData({ ...formData, type: matched ? matched.value : inputValue })
               }
@@ -280,6 +328,49 @@ const Settings: React.FC = () => {
               />
             )}
           />
+
+          {/* 連携する資産（引き落とし口座） */}
+          <FormControl fullWidth margin="normal">
+            <InputLabel>連携資産（引き落とし口座）</InputLabel>
+            <Select
+              value={formData.assetId}
+              onChange={(e) => setFormData({ ...formData, assetId: e.target.value })}
+              label="連携資産（引き落とし口座）"
+            >
+              <MenuItem value="">なし</MenuItem>
+              {assets.map((asset) => (
+                <MenuItem key={asset.id} value={asset.id}>
+                  {asset.name}（¥{parseFloat(asset.balance).toLocaleString()}）
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* クレジットカード向け: 締め日・引き落とし日 */}
+          {isCreditCardType(formData.type) && (
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="締め日"
+                type="number"
+                fullWidth
+                inputProps={{ min: 1, max: 31 }}
+                value={formData.closingDay}
+                onChange={(e) => setFormData({ ...formData, closingDay: e.target.value })}
+                margin="normal"
+                helperText="毎月の締め日（1〜31）"
+              />
+              <TextField
+                label="引き落とし日"
+                type="number"
+                fullWidth
+                inputProps={{ min: 1, max: 31 }}
+                value={formData.paymentDay}
+                onChange={(e) => setFormData({ ...formData, paymentDay: e.target.value })}
+                margin="normal"
+                helperText="毎月の引き落とし日（1〜31）"
+              />
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>キャンセル</Button>

@@ -41,7 +41,12 @@ def create_payment_method(
 ):
     """Create a new payment method"""
     db_method = PaymentMethod(
-        user_id=current_user.id, name=method_create.name, type=method_create.type
+        user_id=current_user.id,
+        name=method_create.name,
+        type=method_create.type,
+        asset_id=method_create.asset_id,
+        closing_day=method_create.closing_day,
+        payment_day=method_create.payment_day,
     )
     db.add(db_method)
     db.commit()
@@ -93,6 +98,14 @@ def update_payment_method(
         method.name = method_update.name
     if method_update.type is not None:
         method.type = method_update.type
+
+    provided = method_update.model_fields_set
+    if "asset_id" in provided:
+        method.asset_id = method_update.asset_id
+    if "closing_day" in provided:
+        method.closing_day = method_update.closing_day
+    if "payment_day" in provided:
+        method.payment_day = method_update.payment_day
 
     db.commit()
     db.refresh(method)

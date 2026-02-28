@@ -29,15 +29,17 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import AddIcon from '@mui/icons-material/Add'
 import LogoutIcon from '@mui/icons-material/Logout'
-import { Transaction, Category, PaymentMethod } from '../types'
+import { Transaction, Category, PaymentMethod, Asset } from '../types'
 import { transactionService } from '../services/transactionService'
 import { categoryService } from '../services/categoryService'
 import { paymentMethodService } from '../services/paymentMethodService'
+import { assetService } from '../services/assetService'
 
 const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [assets, setAssets] = useState<Asset[]>([])
   const [openDialog, setOpenDialog] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
@@ -46,6 +48,7 @@ const Transactions: React.FC = () => {
     type: 'expense',
     categoryId: '',
     paymentMethodId: '',
+    assetId: '',
     description: '',
   })
   const [error, setError] = useState('')
@@ -61,15 +64,17 @@ const Transactions: React.FC = () => {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
       const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
 
-      const [txns, cats, methods] = await Promise.all([
+      const [txns, cats, methods, assetList] = await Promise.all([
         transactionService.getTransactions(0, 1000, firstDay, lastDay),
         categoryService.getCategories(),
         paymentMethodService.getPaymentMethods ? paymentMethodService.getPaymentMethods() : [],
+        assetService.getAssets(),
       ])
 
       setTransactions(txns)
       setCategories(cats)
       setPaymentMethods(methods)
+      setAssets(assetList)
 
       if (cats.length > 0) {
         setFormData((prev) => ({
@@ -91,6 +96,7 @@ const Transactions: React.FC = () => {
         type: txn.type,
         categoryId: txn.category_id,
         paymentMethodId: txn.payment_method_id || '',
+        assetId: txn.asset_id || '',
         description: txn.description || '',
       })
     } else {
@@ -102,6 +108,7 @@ const Transactions: React.FC = () => {
         type: defaultType,
         categoryId: categories.find((c) => c.type === defaultType)?.id || '',
         paymentMethodId: '',
+        assetId: '',
         description: '',
       })
     }
@@ -129,6 +136,7 @@ const Transactions: React.FC = () => {
           type: formData.type,
           category_id: formData.categoryId,
           payment_method_id: formData.paymentMethodId || null,
+          asset_id: formData.assetId || null,
           description: formData.description || null,
         })
       } else {
@@ -138,7 +146,8 @@ const Transactions: React.FC = () => {
           formData.type as 'income' | 'expense',
           formData.categoryId,
           formData.paymentMethodId || undefined,
-          formData.description || undefined
+          formData.description || undefined,
+          formData.assetId || undefined
         )
       }
 
@@ -171,12 +180,14 @@ const Transactions: React.FC = () => {
   }
 
   const categoryMap = Object.fromEntries(categories.map((c) => [c.id, c.name]))
+  const assetMap = Object.fromEntries(assets.map((a) => [a.id, a.name]))
 
   return (
     <>
       <AppBar position="static" sx={{ backgroundColor: '#1E3A8A' }}>
         <Toolbar>
           <Button color="inherit" onClick={() => navigate('/')}>ダッシュボード</Button>
+          <Button color="inherit" onClick={() => navigate('/assets')}>資産管理</Button>
           <Button color="inherit" onClick={() => navigate('/analytics')}>分析</Button>
           <Button color="inherit" onClick={() => navigate('/categories')}>カテゴリー</Button>
           <Button color="inherit" onClick={() => navigate('/settings')}>設定</Button>
@@ -281,6 +292,8 @@ const Transactions: React.FC = () => {
                   ...formData,
                   type: newType,
                   categoryId: categories.find((c) => c.type === newType)?.id || '',
+                  paymentMethodId: '',
+                  assetId: '',
                 })
               }}
               label="種別"
@@ -305,21 +318,43 @@ const Transactions: React.FC = () => {
             </Select>
           </FormControl>
 
-          <FormControl fullWidth margin="normal">
-            <InputLabel>支払方法</InputLabel>
-            <Select
-              value={formData.paymentMethodId}
-              onChange={(e) => setFormData({ ...formData, paymentMethodId: e.target.value })}
-              label="支払方法"
-            >
-              <MenuItem value="">なし</MenuItem>
-              {paymentMethods.map((method) => (
-                <MenuItem key={method.id} value={method.id}>
-                  {method.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {/* 支出の場合: 支払方法を選択 */}
+          {formData.type === 'expense' && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>支払方法</InputLabel>
+              <Select
+                value={formData.paymentMethodId}
+                onChange={(e) => setFormData({ ...formData, paymentMethodId: e.target.value })}
+                label="支払方法"
+              >
+                <MenuItem value="">なし</MenuItem>
+                {paymentMethods.map((method) => (
+                  <MenuItem key={method.id} value={method.id}>
+                    {method.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          {/* 収入の場合: 入金先を選択 */}
+          {formData.type === 'income' && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>入金先</InputLabel>
+              <Select
+                value={formData.assetId}
+                onChange={(e) => setFormData({ ...formData, assetId: e.target.value })}
+                label="入金先"
+              >
+                <MenuItem value="">なし</MenuItem>
+                {assets.map((asset) => (
+                  <MenuItem key={asset.id} value={asset.id}>
+                    {asset.name}（¥{parseFloat(asset.balance).toLocaleString()}）
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           <TextField
             label="説明"
