@@ -1,0 +1,17 @@
+# 開発用オーバーライド
+# ローカルの Dockerfile からビルドする（イメージ pull ではなく）
+#
+# 使い方: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  fluxusledger-backend:
+    image: fluxusledger-backend:dev
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+  fluxusledger-frontend:
+    image: fluxusledger-frontend:dev
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile

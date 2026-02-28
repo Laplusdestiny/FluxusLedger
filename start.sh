@@ -3,7 +3,40 @@
 # スクリプトがエラーで停止するようにする
 set -e
 
-echo "FluxusLedger を起動しています..."
+# --- ヘルプ表示 ---
+usage() {
+    echo "使い方: $0 [オプション]"
+    echo ""
+    echo "オプション:"
+    echo "  --dev       開発モード（ローカルの Dockerfile からビルド）"
+    echo "  --help      このヘルプを表示"
+    echo ""
+    echo "引数なしの場合はプロダクションモード（イメージを pull して起動）"
+    exit 0
+}
+
+# --- 引数の解析 ---
+DEV_MODE=false
+for arg in "$@"; do
+    case "$arg" in
+        --dev)
+            DEV_MODE=true
+            ;;
+        --help|-h)
+            usage
+            ;;
+        *)
+            echo "不明なオプション: $arg"
+            usage
+            ;;
+    esac
+done
+
+if [ "$DEV_MODE" = true ]; then
+    echo "FluxusLedger を起動しています...（開発モード）"
+else
+    echo "FluxusLedger を起動しています...（プロダクションモード）"
+fi
 echo ""
 
 # .envファイルのコピー
@@ -44,7 +77,15 @@ echo "  - Database: localhost:${DB_PORT}"
 echo "  - Nginx: http://localhost:${NGINX_PORT}"
 echo ""
 
-sudo docker compose up --build
+if [ "$DEV_MODE" = true ]; then
+    echo "開発モード: ローカルの Dockerfile からビルドします"
+    echo ""
+    sudo docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+else
+    echo "プロダクションモード: リモートイメージを pull して起動します"
+    echo ""
+    sudo docker compose up --pull always -d
+fi
 
 echo ""
 echo "FluxusLedger が起動しました！"
